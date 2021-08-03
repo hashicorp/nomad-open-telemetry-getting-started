@@ -1,6 +1,6 @@
-# Getting Started with OpenTeletry on HashiCorp Nomad
+# Getting Started with OpenTelemetry on HashiCorp Nomad
 
-This repository contains reference job files to run the [OpenTeletry collector](https://opentelemetry.io/docs/collector/)
+This repository contains reference job files to run the [OpenTelemetry collector](https://opentelemetry.io/docs/collector/)
 in different deployment scenarios, as described in the [Getting Started](https://opentelemetry.io/docs/collector/getting-started/)
 guide.
 
