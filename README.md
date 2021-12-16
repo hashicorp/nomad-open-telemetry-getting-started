@@ -65,3 +65,9 @@ The following services are available:
 * Jaeger: http://<YOUR_IP>:16686
 * Zipkin: http://<YOUR_IP>:9411
 * Prometheus: http://<YOUR_IP>:9090
+
+## Community Resources
+
+- [Just-in-Time Nomad: Running the OpenTelemetry Collector on Hashicorp Nomad with HashiQube][adri_v_nomad_otel] by [Adri V](https://adri-v.medium.com/)
+
+[adri_v_nomad_otel]: https://adri-v.medium.com/just-in-time-nomad-running-the-opentelemetry-collector-on-hashicorp-nomad-with-hashiqube-4eaf009b8382
