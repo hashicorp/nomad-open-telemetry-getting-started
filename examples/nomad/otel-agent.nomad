@@ -91,7 +91,8 @@ receivers:
 exporters:
   otlp:
     endpoint: "{{ with service "otel-collector" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}"
-    insecure: true
+    tls:
+      insecure: true
     sending_queue:
       num_consumers: 4
       queue_size: 100
