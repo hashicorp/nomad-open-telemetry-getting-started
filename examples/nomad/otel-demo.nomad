@@ -213,7 +213,8 @@ exporters:
 
   jaeger:
     endpoint: "{{ with service "grpc.otel-demo-jaeger" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}"
-    insecure: true
+    tls:
+      insecure: true
 
 processors:
   batch:
@@ -360,7 +361,8 @@ receivers:
 exporters:
   otlp:
     endpoint: "{{ with service "otlp.otel-demo-collector" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}"
-    insecure: true
+    tls:
+      insecure: true
   logging:
     loglevel: debug
 

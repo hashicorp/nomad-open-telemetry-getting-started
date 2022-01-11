@@ -146,7 +146,8 @@ exporters:
     endpoint: "http://somezipkin.target.com:9411/api/v2/spans" # Replace with a real endpoint.
   jaeger:
     endpoint: "somejaegergrpc.target.com:14250" # Replace with a real endpoint.
-    insecure: true
+    tls:
+      insecure: true
 service:
   extensions: [health_check, zpages]
   pipelines:
