@@ -1,3 +1,7 @@
+variables {
+  otel_image = "otel/opentelemetry-collector:0.38.0"
+}
+
 job "otel-collector" {
   datacenters = ["dc1"]
   type        = "service"
@@ -28,26 +32,8 @@ job "otel-collector" {
       }
 
       # Extensions
-      port "health-check" {
-        to = 13133
-      }
-
       port "zpages" {
         to = 55679
-      }
-    }
-
-    service {
-      name = "otel-collector"
-      port = "health-check"
-      tags = ["health"]
-
-      check {
-        type     = "http"
-        port     = "health-check"
-        path     = "/"
-        interval = "5s"
-        timeout  = "2s"
       }
     }
 
@@ -91,13 +77,11 @@ job "otel-collector" {
       driver = "docker"
 
       config {
-        image = "otel/opentelemetry-collector-dev:latest"
+        image = var.otel_image
 
         entrypoint = [
           "/otelcol",
           "--config=local/config/otel-collector-config.yaml",
-          # Memory Ballast size should be max 1/3 to 1/2 of memory.
-          "--mem-ballast-size-mib=683"
         ]
 
         ports = [
@@ -106,7 +90,6 @@ job "otel-collector" {
           "jaeger-grpc",
           "jaeger-thrift-http",
           "zipkin",
-          "health-check",
           "zpages",
         ]
       }
@@ -131,16 +114,16 @@ receivers:
 processors:
   batch:
   memory_limiter:
-    # Same as --mem-ballast-size-mib CLI argument
-    ballast_size_mib: 683
     # 80% of maximum memory up to 2G
     limit_mib: 1500
     # 25% of limit up to 2G
     spike_limit_mib: 512
     check_interval: 5s
 extensions:
-  health_check: {}
   zpages: {}
+  memory_ballast:
+    # Memory Ballast size should be max 1/3 to 1/2 of memory.
+    size_mib: 683
 exporters:
   zipkin:
     endpoint: "http://somezipkin.target.com:9411/api/v2/spans" # Replace with a real endpoint.
@@ -149,7 +132,7 @@ exporters:
     tls:
       insecure: true
 service:
-  extensions: [health_check, zpages]
+  extensions: [zpages, memory_ballast]
   pipelines:
     traces/1:
       receivers: [otlp, zipkin]

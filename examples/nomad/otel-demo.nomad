@@ -1,3 +1,7 @@
+variables {
+  otel_image = "otel/opentelemetry-collector:0.38.0"
+}
+
 job "otel-demo" {
   datacenters = ["dc1"]
   type        = "service"
@@ -117,11 +121,6 @@ job "otel-demo" {
         static = 1888
       }
 
-      port "health-check" {
-        to     = 13133
-        static = 13133
-      }
-
       port "zpages" {
         to     = 55679
         static = 55670
@@ -131,20 +130,6 @@ job "otel-demo" {
       port "prometheus" {
         to     = 8889
         static = 8889
-      }
-    }
-
-    service {
-      name = "otel-demo-collector"
-      port = "health-check"
-      tags = ["health"]
-
-      check {
-        type     = "http"
-        port     = "health-check"
-        path     = "/"
-        interval = "5s"
-        timeout  = "2s"
       }
     }
 
@@ -170,7 +155,7 @@ job "otel-demo" {
       driver = "docker"
 
       config {
-        image = "otel/opentelemetry-collector-dev:latest"
+        image = var.otel_image
 
         entrypoint = [
           "/otelcol",
@@ -181,7 +166,6 @@ job "otel-demo" {
           "pprof",
           "metrics",
           "prometheus",
-          "health-check",
           "otlp",
           "zpages",
         ]
@@ -220,14 +204,13 @@ processors:
   batch:
 
 extensions:
-  health_check:
   pprof:
     endpoint: :{{ env "NOMAD_PORT_pprof" }}
   zpages:
     endpoint: :{{ env "NOMAD_PORT_zpages" }}
 
 service:
-  extensions: [pprof, zpages, health_check]
+  extensions: [pprof, zpages]
   pipelines:
     traces:
       receivers: [otlp]
@@ -283,24 +266,6 @@ EOF
         to     = 55679
         static = 55679
       }
-
-      port "health-check" {
-        to = 13133
-      }
-    }
-
-    service {
-      name = "otel-demo-agent"
-      port = "health-check"
-      tags = ["health"]
-
-      check {
-        type     = "http"
-        port     = "health-check"
-        path     = "/"
-        interval = "5s"
-        timeout  = "2s"
-      }
     }
 
     service {
@@ -319,7 +284,7 @@ EOF
       driver = "docker"
 
       config {
-        image = "otel/opentelemetry-collector-dev:latest"
+        image = var.otel_image
 
         entrypoint = [
           "/otelcol",
@@ -335,7 +300,6 @@ EOF
           "zipkin",
           "pprof",
           "zpages",
-          "health-check",
         ]
 
       }
@@ -374,10 +338,9 @@ extensions:
     endpoint: :{{ env "NOMAD_PORT_pprof" }}
   zpages:
     endpoint: :{{ env "NOMAD_PORT_zpages" }}
-  health_check:
 
 service:
-  extensions: [health_check, pprof, zpages]
+  extensions: [pprof, zpages]
   pipelines:
     traces:
       receivers: [otlp, opencensus, jaeger, zipkin]

@@ -1,3 +1,7 @@
+variables {
+  otel_image = "otel/opentelemetry-collector:0.38.0"
+}
+
 job "otel-agent" {
   datacenters = ["dc1"]
   type        = "system"
@@ -14,26 +18,8 @@ job "otel-agent" {
       }
 
       # Extensions
-      port "health-check" {
-        to = 13133
-      }
-
       port "zpages" {
         to = 55679
-      }
-    }
-
-    service {
-      name = "otel-agent"
-      port = "health-check"
-      tags = ["health"]
-
-      check {
-        type     = "http"
-        port     = "health-check"
-        path     = "/"
-        interval = "5s"
-        timeout  = "2s"
       }
     }
 
@@ -59,19 +45,16 @@ job "otel-agent" {
       driver = "docker"
 
       config {
-        image = "otel/opentelemetry-collector-dev:latest"
+        image = var.otel_image
 
         entrypoint = [
           "/otelcol",
           "--config=local/config/otel-agent-config.yaml",
-          # Memory Ballast size should be max 1/3 to 1/2 of memory.
-          "--mem-ballast-size-mib=165"
         ]
 
         ports = [
           "metrics",
           "otlp",
-          "health-check",
           "zpages",
         ]
       }
@@ -101,18 +84,18 @@ exporters:
 processors:
   batch:
   memory_limiter:
-    # Same as --mem-ballast-size-mib CLI argument
-    ballast_size_mib: 165
     # 80% of maximum memory up to 2G
     limit_mib: 400
     # 25% of limit up to 2G
     spike_limit_mib: 100
     check_interval: 5s
 extensions:
-  health_check: {}
   zpages: {}
+  memory_ballast:
+    # Memory Ballast size should be max 1/3 to 1/2 of memory.
+    size_mib: 165
 service:
-  extensions: [health_check, zpages]
+  extensions: [zpages, memory_ballast]
   pipelines:
     traces:
       receivers: [otlp]
