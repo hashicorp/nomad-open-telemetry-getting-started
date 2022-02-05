@@ -69,5 +69,7 @@ The following services are available:
 ## Community Resources
 
 - [Just-in-Time Nomad: Running the OpenTelemetry Collector on Hashicorp Nomad with HashiQube][adri_v_nomad_otel] by [Adri V](https://adri-v.medium.com/)
+- Deploy the OpenTelemetry Collector using the [Nomad Pack][otel_pack] by @jharley
 
 [adri_v_nomad_otel]: https://adri-v.medium.com/just-in-time-nomad-running-the-opentelemetry-collector-on-hashicorp-nomad-with-hashiqube-4eaf009b8382
+[otel_pack]: https://github.com/hashicorp/nomad-pack-community-registry/tree/main/packs/opentelemetry_collector
