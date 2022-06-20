@@ -22,7 +22,7 @@ To run the job files you will need access to a Nomad cluster running version
 following command:
 
 ```shell-session
-$ sudo nomad agent -dev -bind=0.0.0.0 -network-interface='{{ GetPrivateInterfaces | attr "name" }}'
+sudo nomad agent -dev -bind=0.0.0.0 -network-interface='{{ GetPrivateInterfaces | attr "name" }}'
 ```
 
 ### Gateway
@@ -31,7 +31,7 @@ The OpenTelemetry Collector can run as a gateway by registering a
 [service](https://www.nomadproject.io/docs/schedulers#service) job.
 
 ```shell-session
-$ nomad run https://raw.githubusercontent.com/hashicorp/nomad-open-telemetry-getting-started/main/examples/nomad/otel-collector.nomad
+nomad run https://raw.githubusercontent.com/hashicorp/nomad-open-telemetry-getting-started/main/examples/nomad/otel-collector.nomad
 ```
 
 ### Agent
@@ -43,7 +43,7 @@ It connects to the gateway deployed in the previous section as an OTLP
 exporter, so make sure the gateway job is running as well.
 
 ```shell-session
-$ nomad run https://raw.githubusercontent.com/hashicorp/nomad-open-telemetry-getting-started/main/examples/nomad/otel-agent.nomad
+nomad run https://raw.githubusercontent.com/hashicorp/nomad-open-telemetry-getting-started/main/examples/nomad/otel-agent.nomad
 ```
 
 ### Demo
@@ -52,7 +52,7 @@ The demo job deploys the OpenTelemetry Collector as agent and gateway, load
 generators, and the Jaeger, Zipkin and Prometheus back-ends.
 
 ```shell-session
-$ nomad run https://raw.githubusercontent.com/hashicorp/nomad-open-telemetry-getting-started/main/examples/nomad/otel-demo.nomad
+nomad run https://raw.githubusercontent.com/hashicorp/nomad-open-telemetry-getting-started/main/examples/nomad/otel-demo.nomad
 ```
 
 The following services are available:
