@@ -233,6 +233,11 @@ EOF
         destination = "local/env"
         env         = true
       }
+
+      resources {
+        cpu    = 50
+        memory = 16
+      }
     }
   }
 
@@ -264,6 +269,11 @@ EOF
 
         destination = "local/env"
         env         = true
+      }
+
+      resources {
+        cpu    = 50
+        memory = 16
       }
     }
   }
@@ -297,6 +307,11 @@ scrape_configs:
 EOF
 
         destination = "local/prometheus.yaml"
+      }
+
+      resources {
+        cpu    = 100
+        memory = 64
       }
     }
   }
