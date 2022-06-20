@@ -1,5 +1,8 @@
+# Nomad adaption of the Kubernetes example from
+# https://github.com/open-telemetry/opentelemetry-collector/blob/main/examples/k8s/otel-config.yaml
+
 variables {
-  otel_image = "otel/opentelemetry-collector:0.47.0"
+  otel_image = "otel/opentelemetry-collector:0.53.0"
 }
 
 job "otel-agent" {
@@ -13,7 +16,7 @@ job "otel-agent" {
       }
 
       # Receivers
-      port "otlp" {
+      port "grpc" {
         to = 4317
       }
 
@@ -21,24 +24,6 @@ job "otel-agent" {
       port "zpages" {
         to = 55679
       }
-    }
-
-    service {
-      name = "otel-agent"
-      port = "otlp"
-      tags = ["otlp"]
-    }
-
-    service {
-      name = "otel-agent"
-      port = "metrics"
-      tags = ["metrics"]
-    }
-
-    service {
-      name = "otel-agent"
-      port = "zpages"
-      tags = ["zpages"]
     }
 
     task "otel-agent" {
@@ -54,7 +39,7 @@ job "otel-agent" {
 
         ports = [
           "metrics",
-          "otlp",
+          "grpc",
           "zpages",
         ]
       }
@@ -65,7 +50,7 @@ job "otel-agent" {
       }
 
       template {
-        data        = <<EOF
+        data = <<EOF
 receivers:
   otlp:
     protocols:
@@ -73,7 +58,7 @@ receivers:
       http:
 exporters:
   otlp:
-    endpoint: "{{ with service "otel-collector" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}"
+    endpoint: "{{with nomadService "grpc.otel-collector"}}{{with index . 0}}{{.Address}}:{{.Port}}{{end}}{{end}}"
     tls:
       insecure: true
     sending_queue:
@@ -102,6 +87,7 @@ service:
       processors: [memory_limiter, batch]
       exporters: [otlp]
 EOF
+
         destination = "local/config/otel-agent-config.yaml"
       }
     }

@@ -1,5 +1,8 @@
+# Nomad adaption of the Kubernetes example from
+# https://github.com/open-telemetry/opentelemetry-collector/blob/main/examples/k8s/otel-config.yaml
+
 variables {
-  otel_image = "otel/opentelemetry-collector:0.47.0"
+  otel_image = "otel/opentelemetry-collector:0.53.0"
 }
 
 job "otel-collector" {
@@ -15,7 +18,7 @@ job "otel-collector" {
       }
 
       # Receivers
-      port "otlp" {
+      port "grpc" {
         to = 4317
       }
 
@@ -38,39 +41,10 @@ job "otel-collector" {
     }
 
     service {
-      name = "otel-collector"
-      port = "otlp"
-      tags = ["otlp"]
-    }
-
-    service {
-      name = "otel-collector"
-      port = "jaeger-grpc"
-      tags = ["jaeger-grpc"]
-    }
-
-    service {
-      name = "otel-collector"
-      port = "jaeger-thrift-http"
-      tags = ["jaeger-thrift-http"]
-    }
-
-    service {
-      name = "otel-collector"
-      port = "zipkin"
-      tags = ["zipkin"]
-    }
-
-    service {
-      name = "otel-agent"
-      port = "metrics"
-      tags = ["metrics"]
-    }
-
-    service {
-      name = "otel-agent"
-      port = "zpages"
-      tags = ["zpages"]
+      name     = "otel-collector"
+      port     = "grpc"
+      tags     = ["grpc"]
+      provider = "nomad"
     }
 
     task "otel-collector" {
@@ -86,7 +60,7 @@ job "otel-collector" {
 
         ports = [
           "metrics",
-          "otlp",
+          "grpc",
           "jaeger-grpc",
           "jaeger-thrift-http",
           "zipkin",
@@ -100,17 +74,12 @@ job "otel-collector" {
       }
 
       template {
-        data        = <<EOF
+        data = <<EOF
 receivers:
   otlp:
     protocols:
       grpc:
       http:
-  jaeger:
-    protocols:
-      grpc:
-      thrift_http:
-  zipkin: {}
 processors:
   batch:
   memory_limiter:
@@ -125,24 +94,19 @@ extensions:
     # Memory Ballast size should be max 1/3 to 1/2 of memory.
     size_mib: 683
 exporters:
-  zipkin:
-    endpoint: "http://somezipkin.target.com:9411/api/v2/spans" # Replace with a real endpoint.
-  jaeger:
-    endpoint: "somejaegergrpc.target.com:14250" # Replace with a real endpoint.
+  otlp:
+    endpoint: "http://someotlp.target.com:4317" # Replace with a real endpoint.
     tls:
       insecure: true
 service:
   extensions: [zpages, memory_ballast]
   pipelines:
     traces/1:
-      receivers: [otlp, zipkin]
+      receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [zipkin]
-    traces/2:
-      receivers: [otlp, jaeger]
-      processors: [memory_limiter, batch]
-      exporters: [jaeger]
+      exporters: [otlp]
 EOF
+
         destination = "local/config/otel-collector-config.yaml"
       }
     }

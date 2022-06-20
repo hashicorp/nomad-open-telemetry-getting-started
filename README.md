@@ -16,18 +16,13 @@ From the official documentation:
 >  - **Agent**: A Collector instance running with the application or on the same host as the application (e.g. binary, sidecar, or daemonset).
 >  - **Gateway**: One or more Collector instances running as a standalone service (e.g. container or deployment) typically per cluster, datacenter or region.
 
-To run the job files you will need access to a Nomad cluster and, optionally, a
-Consul cluster as well. You can start a local dev agent for Nomad and Consul by
-downloading the [`nomad`](https://www.nomadproject.io/downloads) and
-[`consul`](https://www.consul.io/downloads) binary and running the following
-commands in two different terminals:
+To run the job files you will need access to a Nomad cluster running version
+1.3.0+. You can start a local dev agent for Nomad by downloading the
+[`nomad`](https://www.nomadproject.io/downloads) binary and running the
+following command:
 
 ```shell-session
-$ nomad agent -dev -network-interface='{{ GetPrivateInterfaces | attr "name" }}'
-```
-
-```shell-session
-$ consul agent -dev
+$ sudo nomad agent -dev -bind=0.0.0.0 -network-interface='{{ GetPrivateInterfaces | attr "name" }}'
 ```
 
 ### Gateway

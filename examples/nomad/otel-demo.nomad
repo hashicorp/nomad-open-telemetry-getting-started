@@ -1,5 +1,9 @@
+# Nomad adaption of the Docker Compose demo from
+# https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/examples/demo
+
 variables {
-  otel_image = "otel/opentelemetry-collector:0.47.0"
+  otelcol_img  = "otel/opentelemetry-collector-contrib-dev:latest"
+  otelcol_args = []
 }
 
 job "otel-demo" {
@@ -7,9 +11,9 @@ job "otel-demo" {
   type        = "service"
 
   # Jaeger
-  group "jaeger" {
+  group "jaeger-all-in-one" {
     network {
-      port "http" {
+      port "ui" {
         to     = 16686
         static = 16686
       }
@@ -24,29 +28,10 @@ job "otel-demo" {
     }
 
     service {
-      name = "otel-demo-jaeger"
-      port = "http"
-      tags = ["http"]
-
-      check {
-        type     = "http"
-        port     = "http"
-        path     = "/"
-        interval = "5s"
-        timeout  = "2s"
-      }
-    }
-
-    service {
-      name = "otel-demo-jaeger"
-      port = "thrift"
-      tags = ["thrift"]
-    }
-
-    service {
-      name = "otel-demo-jaeger"
-      port = "grpc"
-      tags = ["grpc"]
+      name     = "otel-demo-jaeger"
+      port     = "grpc"
+      tags     = ["grpc"]
+      provider = "nomad"
     }
 
     task "jaeger-all-in-one" {
@@ -54,7 +39,7 @@ job "otel-demo" {
 
       config {
         image = "jaegertracing/all-in-one:latest"
-        ports = ["http", "thrift", "grpc"]
+        ports = ["ui", "thrift", "grpc"]
       }
 
       resources {
@@ -65,7 +50,7 @@ job "otel-demo" {
   }
 
   # Zipkin
-  group "zipkin" {
+  group "zipkin-all-in-one" {
     network {
       port "http" {
         to     = 9411
@@ -74,16 +59,9 @@ job "otel-demo" {
     }
 
     service {
-      name = "otel-demo-zipkin"
-      port = "http"
-
-      check {
-        type     = "http"
-        port     = "http"
-        path     = "/health"
-        interval = "5s"
-        timeout  = "2s"
-      }
+      name     = "otel-demo-zipkin"
+      port     = "http"
+      provider = "nomad"
     }
 
     task "zipkin-all-in-one" {
@@ -111,7 +89,7 @@ job "otel-demo" {
       }
 
       # Receivers
-      port "otlp" {
+      port "grpc" {
         to = 4317
       }
 
@@ -123,7 +101,12 @@ job "otel-demo" {
 
       port "zpages" {
         to     = 55679
-        static = 55670
+        static = 55679
+      }
+
+      port "health-check" {
+        static = 13133
+        to     = 13133
       }
 
       # Exporters
@@ -134,40 +117,44 @@ job "otel-demo" {
     }
 
     service {
-      name = "otel-demo-collector"
-      port = "otlp"
-      tags = ["otlp"]
+      name     = "otel-demo-collector"
+      port     = "grpc"
+      tags     = ["grpc"]
+      provider = "nomad"
     }
 
     service {
-      name = "otel-demo-collector"
-      port = "metrics"
-      tags = ["metrics"]
+      name     = "otel-demo-collector"
+      port     = "metrics"
+      tags     = ["metrics"]
+      provider = "nomad"
     }
 
     service {
-      name = "otel-demo-collector"
-      port = "prometheus"
-      tags = ["prometheus"]
+      name     = "otel-demo-collector"
+      port     = "prometheus"
+      tags     = ["prometheus"]
+      provider = "nomad"
     }
 
     task "otel-collector" {
       driver = "docker"
 
       config {
-        image = var.otel_image
-
-        entrypoint = [
-          "/otelcol",
-          "--config=local/config/otel-collector-config.yaml",
-        ]
+        image = var.otelcol_img
+        args  = concat(["--config=/etc/otel-collector-config.yaml"], var.otelcol_args)
 
         ports = [
           "pprof",
           "metrics",
           "prometheus",
-          "otlp",
+          "grpc",
+          "health-check",
           "zpages",
+        ]
+
+        volumes = [
+          "local/otel-collector-config.yaml:/etc/otel-collector-config.yaml",
         ]
       }
 
@@ -177,7 +164,7 @@ job "otel-demo" {
       }
 
       template {
-        data        = <<EOF
+        data = <<EOF
 receivers:
   otlp:
     protocols:
@@ -185,18 +172,18 @@ receivers:
 
 exporters:
   prometheus:
-    endpoint: "0.0.0.0:{{ env "NOMAD_PORT_prometheus" }}"
-    namespace: promexample
+    endpoint: "0.0.0.0:{{env "NOMAD_PORT_prometheus"}}"
     const_labels:
       label1: value1
+
   logging:
 
   zipkin:
-    endpoint: "http://{{ with service "otel-demo-zipkin" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}/api/v2/spans"
+    endpoint: "http://{{with nomadService "otel-demo-zipkin"}}{{with index . 0}}{{.Address}}:{{.Port}}{{end}}{{end}}/api/v2/spans"
     format: proto
 
   jaeger:
-    endpoint: "{{ with service "grpc.otel-demo-jaeger" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}"
+    endpoint: {{with nomadService "grpc.otel-demo-jaeger"}}{{with index . 0}}{{.Address}}:{{.Port}}{{end}}{{end}}
     tls:
       insecure: true
 
@@ -204,13 +191,14 @@ processors:
   batch:
 
 extensions:
+  health_check:
   pprof:
-    endpoint: :{{ env "NOMAD_PORT_pprof" }}
+    endpoint: :{{env "NOMAD_PORT_pprof"}}
   zpages:
-    endpoint: :{{ env "NOMAD_PORT_zpages" }}
+    endpoint: :{{env "NOMAD_PORT_zpages"}}
 
 service:
-  extensions: [pprof, zpages]
+  extensions: [pprof, zpages, health_check]
   pipelines:
     traces:
       receivers: [otlp]
@@ -221,181 +209,60 @@ service:
       processors: [batch]
       exporters: [logging, prometheus]
 EOF
-        destination = "local/config/otel-collector-config.yaml"
+
+        destination = "local/otel-collector-config.yaml"
       }
     }
   }
 
-  # Agent
-  group "otel-agent" {
-    network {
-      # Prometheus metrics exposed by the agent
-      port "metrics" {
-        to     = "8888"
-        static = "8887"
-      }
-
-      # Receivers
-      port "jaeger-grpc" {
-        to = 14250
-      }
-
-      port "jaeger-thrift-http" {
-        to = 14268
-      }
-
-      port "opencensus" {
-        to = 55678
-      }
-
-      port "otlp" {
-        to = 4317
-      }
-
-      port "zipkin" {
-        to = 9411
-      }
-
-      # Extensions
-      port "pprof" {
-        to     = 1777
-        static = 1777
-      }
-
-      port "zpages" {
-        to     = 55679
-        static = 55679
-      }
-    }
-
-    service {
-      name = "otel-demo-agent"
-      port = "jaeger-thrift-http"
-      tags = ["jaeger-thrift-http"]
-    }
-
-    service {
-      name = "otel-demo-agent"
-      port = "zipkin"
-      tags = ["zipkin"]
-    }
-
-    task "otel-agent" {
+  # Demo client and server
+  group "demo-client" {
+    task "client" {
       driver = "docker"
 
       config {
-        image = var.otel_image
-
-        entrypoint = [
-          "/otelcol",
-          "--config=local/config/otel-agent-config.yaml",
-        ]
-
-        ports = [
-          "metrics",
-          "jaeger-grpc",
-          "jaeger-thrift-http",
-          "opencensus",
-          "otlp",
-          "zipkin",
-          "pprof",
-          "zpages",
-        ]
-
-      }
-
-      resources {
-        cpu    = 200
-        memory = 64
+        image = "laoqui/otel-demo-client:latest"
       }
 
       template {
-        data        = <<EOF
-receivers:
-  otlp:
-    protocols:
-      grpc:
-  opencensus:
-  jaeger:
-    protocols:
-      grpc:
-      thrift_http:
-  zipkin:
-
-exporters:
-  otlp:
-    endpoint: "{{ with service "otlp.otel-demo-collector" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}"
-    tls:
-      insecure: true
-  logging:
-    loglevel: debug
-
-processors:
-  batch:
-
-extensions:
-  pprof:
-    endpoint: :{{ env "NOMAD_PORT_pprof" }}
-  zpages:
-    endpoint: :{{ env "NOMAD_PORT_zpages" }}
-
-service:
-  extensions: [pprof, zpages]
-  pipelines:
-    traces:
-      receivers: [otlp, opencensus, jaeger, zipkin]
-      processors: [batch]
-      exporters: [otlp, logging]
-    metrics:
-      receivers: [otlp, opencensus]
-      processors: [batch]
-      exporters: [otlp, logging]
+        data = <<EOF
+OTEL_EXPORTER_OTLP_ENDPOINT={{with nomadService "grpc.otel-demo-collector"}}{{with index . 0}}{{.Address}}:{{.Port}}{{end}}{{end}}
+DEMO_SERVER_ENDPOINT=http://{{with nomadService "otel-demo-server"}}{{with index . 0}}{{.Address}}:{{.Port}}{{end}}{{end}}/hello
 EOF
-        destination = "local/config/otel-agent-config.yaml"
-      }
-    }
-  }
 
-  # Synthetic load generators
-  group "load-generators" {
-    task "jaeger-emitter" {
-      driver = "docker"
-
-      config {
-        image = "omnition/synthetic-load-generator:1.0.25"
-      }
-
-      resources {
-        cpu    = 200
-        memory = 128
-      }
-
-      template {
-        data        = <<EOF
-JAEGER_COLLECTOR_URL = http://{{ with service "jaeger-thrift-http.otel-demo-agent" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}
-EOF
-        destination = "local/config.env"
+        destination = "local/env"
         env         = true
       }
     }
+  }
 
-    task "zipkin-emitter" {
+  group "demo-server" {
+    network {
+      port "http" {
+        to = 7080
+      }
+    }
+
+    service {
+      name     = "otel-demo-server"
+      port     = "http"
+      provider = "nomad"
+    }
+
+    task "server" {
       driver = "docker"
 
       config {
-        image = "omnition/synthetic-load-generator:1.0.25"
-      }
-
-      resources {
-        cpu    = 200
-        memory = 128
+        image = "laoqui/otel-demo-server:latest"
+        ports = ["http"]
       }
 
       template {
-        data        = <<EOF
-ZIPKINV2_JSON_URL = http://{{ with service "zipkin.otel-demo-agent" }}{{ with index . 0 }}{{ .Address }}:{{ .Port }}{{ end }}{{ end }}/api/v2/spans
+        data = <<EOF
+OTEL_EXPORTER_OTLP_ENDPOINT={{with nomadService "grpc.otel-demo-collector"}}{{with index . 0}}{{.Address}}:{{.Port}}{{end}}{{end}}
 EOF
-        destination = "local/config.env"
+
+        destination = "local/env"
         env         = true
       }
     }
@@ -416,24 +283,20 @@ EOF
       config {
         image   = "prom/prometheus:latest"
         ports   = ["http"]
-        volumes = ["local/config/prometheus.yaml:/etc/prometheus/prometheus.yml"]
-      }
-
-      resources {
-        cpu    = 100
-        memory = 64
+        volumes = ["local/prometheus.yaml:/etc/prometheus/prometheus.yml"]
       }
 
       template {
-        data        = <<EOF
+        data = <<EOF
 scrape_configs:
   - job_name: 'otel-collector'
     scrape_interval: 10s
     static_configs:
-      - targets: [{{ range $index := service "prometheus.otel-demo-collector" }}'{{ .Address }}:{{ .Port }}',{{ end }}]
-      - targets: [{{ range $index := service "metrics.otel-demo-collector" }}'{{ .Address }}:{{ .Port }}',{{ end }}]
+      - targets: [{{range nomadService "prometheus.otel-demo-collector"}}'{{.Address}}:{{.Port}}',{{end}}]
+      - targets: [{{range nomadService "metrics.otel-demo-collector"}}'{{.Address}}:{{.Port}}',{{end}}]
 EOF
-        destination = "local/config/prometheus.yaml"
+
+        destination = "local/prometheus.yaml"
       }
     }
   }
