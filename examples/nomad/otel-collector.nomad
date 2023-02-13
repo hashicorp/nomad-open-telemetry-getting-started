@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 # Nomad adaption of the Kubernetes example from
 # https://github.com/open-telemetry/opentelemetry-collector/blob/main/examples/k8s/otel-config.yaml
 
